@@ -51,7 +51,7 @@ class Binlog2sql(object):
             bin_index = [row[0] for row in cursor.fetchall()]
             if self.start_file not in bin_index:  #binlog2sql只能解析远程服务器的binlog，而且binlog必须在mysql的binlog目录下
                 raise ValueError('parameter error: start_file %s not in mysql server' % self.start_file)
-            binlog2i = lambda x: x.split('.')[1]
+            binlog2i = lambda x: x.split('.')[1] #lambda 左边是入参，冒号右边是函数体
             for binary in bin_index:
                 if binlog2i(self.start_file) <= binlog2i(binary) <= binlog2i(self.end_file):
                     self.binlogList.append(binary)
