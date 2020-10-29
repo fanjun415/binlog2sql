@@ -10,7 +10,7 @@ from binlog2sql_util import command_line_args, concat_sql_from_binlog_event, cre
     reversed_lines, is_dml_event, event_type
 
 
-class Binlog2sql(object):
+class Binlog2sql(object):     
 
     def __init__(self, connection_settings, start_file=None, start_pos=None, end_file=None, end_pos=None,
                  start_time=None, stop_time=None, only_schemas=None, only_tables=None, no_pk=False,
@@ -44,12 +44,12 @@ class Binlog2sql(object):
 
         self.binlogList = []
         self.connection = pymysql.connect(**self.conn_setting)
-        with self.connection as cursor:
-            cursor.execute("SHOW MASTER STATUS")
+        with self.connection as cursor:  # pymysql包详情
+            cursor.execute("SHOW MASTER STATUS") #查询主库状态的用途？
             self.eof_file, self.eof_pos = cursor.fetchone()[:2]
             cursor.execute("SHOW MASTER LOGS")
             bin_index = [row[0] for row in cursor.fetchall()]
-            if self.start_file not in bin_index:
+            if self.start_file not in bin_index:  #binlog2sql只能解析远程服务器的binlog，而且binlog必须在mysql的binlog目录下
                 raise ValueError('parameter error: start_file %s not in mysql server' % self.start_file)
             binlog2i = lambda x: x.split('.')[1]
             for binary in bin_index:
@@ -57,7 +57,7 @@ class Binlog2sql(object):
                     self.binlogList.append(binary)
 
             cursor.execute("SELECT @@server_id")
-            self.server_id = cursor.fetchone()[0]
+            self.server_id = cursor.fetchone()[0] # serverid不能缺失
             if not self.server_id:
                 raise ValueError('missing server_id in %s:%s' % (self.conn_setting['host'], self.conn_setting['port']))
 
@@ -72,9 +72,9 @@ class Binlog2sql(object):
         tmp_file = create_unique_file('%s.%s' % (self.conn_setting['host'], self.conn_setting['port']))
         with temp_open(tmp_file, "w") as f_tmp, self.connection as cursor:
             for binlog_event in stream:
-                if not self.stop_never:
+                if not self.stop_never: # stop_never是什么意思？
                     try:
-                        event_time = datetime.datetime.fromtimestamp(binlog_event.timestamp)
+                        event_time = datetime.datetime.fromtimestamp(binlog_event.timestamp) # 获取binlog时间戳
                     except OSError:
                         event_time = datetime.datetime(1980, 1, 1, 0, 0)
                     if (stream.log_file == self.end_file and stream.log_pos == self.end_pos) or \
@@ -92,10 +92,14 @@ class Binlog2sql(object):
                         break
                     # else:
                     #     raise ValueError('unknown binlog file or position')
+                
 
                 if isinstance(binlog_event, QueryEvent) and binlog_event.query == 'BEGIN':
                     e_start_pos = last_pos
 
+                ''' 
+                假如是QueryEvent事件则从binlog直接拼接sql
+                '''
                 if isinstance(binlog_event, QueryEvent) and not self.only_dml:
                     sql = concat_sql_from_binlog_event(cursor=cursor, binlog_event=binlog_event,
                                                        flashback=self.flashback, no_pk=self.no_pk)
